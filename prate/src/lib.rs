@@ -1,8 +1,12 @@
+pub mod parser;
+
+mod lexer;
+mod syntax;
+
 #[cfg(test)]
 mod tests {
     #[test]
-    fn it_works() {
-        let result = 2 + 2;
-        assert_eq!(result, 4);
+    fn is_ok() {
+        assert_eq!(2+2, 4);
     }
 }
