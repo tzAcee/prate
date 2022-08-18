@@ -57,12 +57,8 @@ impl<'t, 'input> Parser<'t, 'input> {
     }
 
     fn bump(&mut self) {
-        let Token { kind, text } = self.source.next_token().unwrap();
-
-        self.events.push(Event::AddToken {
-            kind: *kind,
-            text: (*text).into(),
-        });
+        self.source.next_token().unwrap();
+        self.events.push(Event::AddToken);
     }
 
     fn at(&mut self, kind: SyntaxKind) -> bool {
@@ -141,8 +137,8 @@ Root@0..9
             expect![[r##"
             Root@0..37
               Whitespace@0..1 "\n"
-              BinExpression@1..37
-                BinExpression@1..22
+              InfixExpression@1..37
+                InfixExpression@1..22
                   Literal@1..5
                     Number@1..2 "1"
                     Whitespace@2..5 "\n  "

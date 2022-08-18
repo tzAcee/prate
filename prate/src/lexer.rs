@@ -67,7 +67,7 @@ pub(crate) enum SyntaxKind {
     Undefined,
 
     Root,
-    BinExpression,
+    InfixExpression,
     Literal,
     ParenExpr,
     PrefixExpression,

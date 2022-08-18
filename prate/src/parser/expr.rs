@@ -1,13 +1,13 @@
 use super::{marker::CompletedMarker, Parser};
 use crate::lexer::SyntaxKind;
-enum InfixOp {
+enum BinaryOp {
     Add,
     Sub,
     Mul,
     Div,
 }
 
-impl InfixOp {
+impl BinaryOp {
     fn binding_power(&self) -> (u8, u8) {
         match self {
             Self::Add | Self::Sub => (1, 2),
@@ -16,11 +16,11 @@ impl InfixOp {
     }
 }
 
-enum PrefixOp {
+enum UnaryOp {
     Neg,
 }
 
-impl PrefixOp {
+impl UnaryOp {
     fn binding_power(&self) -> ((), u8) {
         match self {
             Self::Neg => ((), 5),
@@ -41,10 +41,10 @@ fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) {
 
     loop {
         let op = match p.peek() {
-            Some(SyntaxKind::Plus) => InfixOp::Add,
-            Some(SyntaxKind::Minus) => InfixOp::Sub,
-            Some(SyntaxKind::Star) => InfixOp::Mul,
-            Some(SyntaxKind::Slash) => InfixOp::Div,
+            Some(SyntaxKind::Plus) => BinaryOp::Add,
+            Some(SyntaxKind::Minus) => BinaryOp::Sub,
+            Some(SyntaxKind::Star) => BinaryOp::Mul,
+            Some(SyntaxKind::Slash) => BinaryOp::Div,
             _ => return, // we’ll handle errors later.
         };
 
@@ -59,7 +59,7 @@ fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) {
 
         let m = lhs.precede(p);
         expr_binding_power(p, right_binding_power);
-        lhs = m.complete(p, SyntaxKind::BinExpression);
+        lhs = m.complete(p, SyntaxKind::InfixExpression);
     }
 }
 
@@ -96,7 +96,7 @@ fn prefix_expr(p: &mut Parser) -> CompletedMarker {
 
     let m = p.start();
 
-    let op = PrefixOp::Neg;
+    let op = UnaryOp::Neg;
     let ((), right_binding_power) = op.binding_power();
 
     // Eat the operator’s token.
@@ -160,7 +160,7 @@ mod tests {
             "1+2",
             expect![[r#"
 Root@0..3
-  BinExpression@0..3
+  InfixExpression@0..3
     Literal@0..1
       Number@0..1 "1"
     Plus@1..2 "+"
@@ -175,9 +175,9 @@ Root@0..3
             "1+2+3+4",
             expect![[r#"
         Root@0..7
-          BinExpression@0..7
-            BinExpression@0..5
-              BinExpression@0..3
+          InfixExpression@0..7
+            InfixExpression@0..5
+              InfixExpression@0..3
                 Literal@0..1
                   Number@0..1 "1"
                 Plus@1..2 "+"
@@ -198,12 +198,12 @@ Root@0..3
             "1+2*3-4",
             expect![[r#"
 Root@0..7
-  BinExpression@0..7
-    BinExpression@0..5
+  InfixExpression@0..7
+    InfixExpression@0..5
       Literal@0..1
         Number@0..1 "1"
       Plus@1..2 "+"
-      BinExpression@2..5
+      InfixExpression@2..5
         Literal@2..3
           Number@2..3 "2"
         Star@3..4 "*"
@@ -234,7 +234,7 @@ Root@0..7
             "-20+20",
             expect![[r#"
 Root@0..6
-  BinExpression@0..6
+  InfixExpression@0..6
     PrefixExpression@0..3
       Minus@0..1 "-"
       Literal@1..3
@@ -280,13 +280,13 @@ Root@0..6
             "5*(2+1)",
             expect![[r#"
 Root@0..7
-  BinExpression@0..7
+  InfixExpression@0..7
     Literal@0..1
       Number@0..1 "5"
     Star@1..2 "*"
     ParenExpr@2..7
       LBrace@2..3 "("
-      BinExpression@3..6
+      InfixExpression@3..6
         Literal@3..4
           Number@3..4 "2"
         Plus@4..5 "+"
@@ -340,13 +340,13 @@ Root@0..6
             expect![[r#"
 Root@0..12
   Whitespace@0..1 " "
-  BinExpression@1..12
+  InfixExpression@1..12
     Literal@1..3
       Number@1..2 "1"
       Whitespace@2..3 " "
     Plus@3..4 "+"
     Whitespace@4..7 "   "
-    BinExpression@7..12
+    InfixExpression@7..12
       Literal@7..8
         Number@7..8 "2"
       Star@8..9 "*"
