@@ -1,5 +1,5 @@
-use super::{marker::CompletedMarker, Parser};
-use crate::lexer::SyntaxKind;
+use super::*;
+
 enum BinaryOp {
     Add,
     Sub,
@@ -28,16 +28,12 @@ impl UnaryOp {
     }
 }
 
-pub(super) fn expr(p: &mut Parser) {
-    expr_binding_power(p, 0);
+pub(super) fn expr(p: &mut Parser) -> Option<CompletedMarker> {
+  expr_binding_power(p, 0)
 }
 
-fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) {
-    let mut lhs = if let Some(lhs) = lhs(p) {
-        lhs
-    } else {
-        return; // we’ll handle errors later.
-    };
+fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) -> Option<CompletedMarker> {
+    let mut lhs = lhs(p)?;
 
     loop {
         let op = match p.peek() {
@@ -45,13 +41,13 @@ fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) {
             Some(SyntaxKind::Minus) => BinaryOp::Sub,
             Some(SyntaxKind::Star) => BinaryOp::Mul,
             Some(SyntaxKind::Slash) => BinaryOp::Div,
-            _ => return, // we’ll handle errors later.
+            _ => return None, // we’ll handle errors later.
         };
 
         let (left_binding_power, right_binding_power) = op.binding_power();
 
         if left_binding_power < minimum_binding_power {
-            return;
+            break;
         }
 
         // Eat the operator’s token.
@@ -61,6 +57,7 @@ fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) {
         expr_binding_power(p, right_binding_power);
         lhs = m.complete(p, SyntaxKind::InfixExpression);
     }
+    Some(lhs)
 }
 
 fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
@@ -118,19 +115,13 @@ fn paren_expr(p: &mut Parser) -> CompletedMarker {
     assert!(p.at(SyntaxKind::RBrace));
     p.bump();
 
-    m.complete(p, SyntaxKind::ParenExpr)
+    m.complete(p, SyntaxKind::ParenExpression)
 }
 ///////////////////////////////////
 #[cfg(test)]
 mod tests {
-    use crate::parser::parse;
-
-    use expect_test::{expect, Expect};
-
-    fn check(input: &str, expected_tree: Expect) {
-        let parse = parse(input);
-        expected_tree.assert_eq(&parse.debug_tree());
-    }
+  use crate::check;
+  use expect_test::expect;
 
     #[test]
     fn parse_number() {
@@ -251,17 +242,17 @@ Root@0..6
             "((((((10))))))",
             expect![[r#"
         Root@0..14
-          ParenExpr@0..14
+          ParenExpression@0..14
             LBrace@0..1 "("
-            ParenExpr@1..13
+            ParenExpression@1..13
               LBrace@1..2 "("
-              ParenExpr@2..12
+              ParenExpression@2..12
                 LBrace@2..3 "("
-                ParenExpr@3..11
+                ParenExpression@3..11
                   LBrace@3..4 "("
-                  ParenExpr@4..10
+                  ParenExpression@4..10
                     LBrace@4..5 "("
-                    ParenExpr@5..9
+                    ParenExpression@5..9
                       LBrace@5..6 "("
                       Literal@6..8
                         Number@6..8 "10"
@@ -284,7 +275,7 @@ Root@0..7
     Literal@0..1
       Number@0..1 "5"
     Star@1..2 "*"
-    ParenExpr@2..7
+    ParenExpression@2..7
       LBrace@2..3 "("
       InfixExpression@3..6
         Literal@3..4

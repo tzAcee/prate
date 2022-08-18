@@ -1,0 +1,8 @@
+[workspace]
+
+members = [
+    "crates/lexer",
+    "crates/syntax",
+    "crates/parser",
+    "prate"
+]

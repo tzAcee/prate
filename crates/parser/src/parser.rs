@@ -1,94 +1,55 @@
-mod event;
-mod expr;
-mod marker;
-mod sink;
-mod source;
+pub(crate) mod marker;
 
-use crate::lexer::{Lexer, SyntaxKind, Token};
-use crate::syntax::SyntaxNode;
-use event::Event;
-use expr::expr;
+use crate::event::Event;
+use crate::grammar;
+use crate::source::Source;
 use marker::Marker;
-use rowan::GreenNode;
-use sink::Sink;
-use source::Source;
+use syntax::SyntaxKind;
 
-pub fn parse(input: &str) -> Parse {
-    let tokens: Vec<_> = Lexer::new(input).collect();
-    let parser = Parser::new(&tokens);
-    let events = parser.parse();
-    let sink = Sink::new(&tokens, events);
-
-    Parse {
-        green_node: sink.finish(),
-    }
-}
-
-struct Parser<'t, 'input> {
+pub(crate) struct Parser<'t, 'input> {
     source: Source<'t, 'input>,
     events: Vec<Event>,
 }
 
 impl<'t, 'input> Parser<'t, 'input> {
-    fn new(tokens: &'t [Token<'input>]) -> Self {
+    pub(crate) fn new(source: Source<'t, 'input>) -> Self {
         Self {
-            source: Source::new(tokens),
+            source,
             events: Vec::new(),
         }
     }
 
-    fn start(&mut self) -> Marker {
+    pub(crate) fn start(&mut self) -> Marker {
         let pos = self.events.len();
         self.events.push(Event::Placeholder);
 
         Marker::new(pos)
     }
 
-    fn parse(mut self) -> Vec<Event> {
-        let m = self.start();
-        expr(&mut self);
-        m.complete(&mut self, SyntaxKind::Root);
-
+    pub(crate) fn parse(mut self) -> Vec<Event> {
+        grammar::root(&mut self);
         self.events
     }
 
-    fn peek(&mut self) -> Option<SyntaxKind> {
+    pub(crate) fn peek(&mut self) -> Option<SyntaxKind> {
         self.source.peek_kind()
     }
 
-    fn bump(&mut self) {
+    pub(crate) fn bump(&mut self) {
         self.source.next_token().unwrap();
         self.events.push(Event::AddToken);
     }
 
-    fn at(&mut self, kind: SyntaxKind) -> bool {
+    pub(crate) fn at(&mut self, kind: SyntaxKind) -> bool {
         self.peek() == Some(kind)
-    }
-}
-
-pub struct Parse {
-    green_node: GreenNode,
-}
-
-impl Parse {
-    pub fn debug_tree(&self) -> String {
-        let syntax_node = SyntaxNode::new_root(self.green_node.clone());
-        let formatted = format!("{:#?}", syntax_node);
-
-        formatted[0..formatted.len() - 1].to_string()
     }
 }
 
 ///////////////////////////////////
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use expect_test::{expect, Expect};
-
-    pub fn check(input: &str, expected_tree: Expect) {
-        let parse = parse(input);
-        expected_tree.assert_eq(&parse.debug_tree());
-    }
+    use crate::check;
+    use expect_test::expect;
 
     #[test]
     fn parse_nothing() {
