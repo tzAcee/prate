@@ -2,6 +2,7 @@ mod event;
 mod expr;
 mod sink;
 mod source;
+mod marker;
 
 use crate::lexer::{Lexeme, Lexer, SyntaxKind};
 use crate::syntax::SyntaxNode;
@@ -10,6 +11,7 @@ use expr::expr;
 use rowan::GreenNode;
 use sink::Sink;
 use source::Source;
+use marker::Marker;
 
 pub fn parse(input: &str) -> Parse {
     let lexemes: Vec<_> = Lexer::new(input).collect();
@@ -35,16 +37,26 @@ impl<'l, 'input> Parser<'l, 'input> {
         }
     }
 
+    fn start(&mut self) -> Marker {
+        let pos = self.events.len();
+        self.events.push(Event::Placeholder);
+
+        Marker::new(pos)
+    }
+
     fn parse(mut self) -> Vec<Event> {
-        self.start_node(SyntaxKind::Root);
+        let m = self.start();
         expr(&mut self);
-        self.finish_node();
+        m.complete(&mut self, SyntaxKind::Root);
 
         self.events
     }
 
     fn start_node(&mut self, kind: SyntaxKind) {
-        self.events.push(Event::StartNode { kind });
+        self.events.push(Event::StartNode {
+            kind,
+            forward_parent: None,
+        });
     }
 
     fn start_node_at(&mut self, checkpoint: usize, kind:SyntaxKind) {
@@ -109,6 +121,59 @@ mod tests {
             expect![[r#"
 Root@0..3
   Whitespace@0..3 "   ""#]],
+        );
+    }
+
+    #[test]
+    fn parse_whitespace_with_id() {
+        check(
+            "\r\n\r",
+            expect![[r#"
+            Root@0..3
+              Whitespace@0..1 "\r"
+              Whitespace@1..2 "\n"
+              Whitespace@2..3 "\r""#]],
+        );
+    }
+
+    #[test]
+    fn parse_comment() {
+        check(
+            "// hello!",
+            expect![[r##"
+Root@0..9
+  Comment@0..9 "// hello!""##]],
+        );
+    }
+
+    #[test]
+    fn parse_binary_expression_interspersed_with_comments() {
+        check(
+            "
+1
+  + 1 // Add one
+  + 10 // Add ten",
+            expect![[r##"
+            Root@0..37
+              Whitespace@0..1 "\n"
+              BinExpression@1..37
+                BinExpression@1..22
+                  Literal@1..5
+                    Number@1..2 "1"
+                    Whitespace@2..5 "\n  "
+                  Plus@5..6 "+"
+                  Whitespace@6..7 " "
+                  Literal@7..22
+                    Number@7..8 "1"
+                    Whitespace@8..9 " "
+                    Comment@9..19 "// Add one"
+                    Whitespace@19..22 "\n  "
+                Plus@22..23 "+"
+                Whitespace@23..24 " "
+                Literal@24..37
+                  Number@24..26 "10"
+                  Whitespace@26..27 " "
+                  Comment@27..37 "// Add ten""##]],
         );
     }
 }

@@ -1,5 +1,5 @@
 
-use super::Parser;
+use super::{Parser, marker::CompletedMarker};
 use crate::lexer::SyntaxKind;
 enum InfixOp {
     Add,
@@ -39,35 +39,43 @@ pub(super) fn expr(p: &mut Parser) {
 fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) {
     let checkpoint = p.checkpoint();
 
-    match p.peek() {
-        Some(t) => {
-            match t {
-                SyntaxKind::Number | SyntaxKind::Identifier => {
-                    p.bump()
-                }
-                SyntaxKind::Minus => {
-                    let op = PrefixOp::Neg;
-                    let ((), right_binding_power) = op.binding_power();
-        
-                    p.bump();
-        
-                    p.start_node_at(checkpoint, SyntaxKind::PrefixExpression);
-                    expr_binding_power(p, right_binding_power);
-                    p.finish_node();
-                }
-                SyntaxKind::LBrace => {
-                    p.bump();
-                    expr_binding_power(p, 0);
-                    assert_eq!(p.peek(), Some(SyntaxKind::RBrace));
-                    p.bump();
-                }
-                _ => {
-                    todo!();
-                }
-            }
+    let mut lhs = match p.peek() {
+        Some(SyntaxKind::Number) => {
+            let m = p.start();
+            p.bump();
+            m.complete(p, SyntaxKind::Literal)
         }
-        _ => {}
-    }
+        Some(SyntaxKind::Identifier) => {
+            let m = p.start();
+            p.bump();
+            m.complete(p, SyntaxKind::VariableRef)
+        }
+        Some(SyntaxKind::Minus) => {
+            let m = p.start();
+
+            let op = PrefixOp::Neg;
+            let ((), right_binding_power) = op.binding_power();
+
+            // Eat the operator’s token.
+            p.bump();
+
+            expr_binding_power(p, right_binding_power);
+
+            m.complete(p, SyntaxKind::PrefixExpression)
+        }
+        Some(SyntaxKind::LBrace) => {
+            let m = p.start();
+
+            p.bump();
+            expr_binding_power(p, 0);
+
+            assert_eq!(p.peek(), Some(SyntaxKind::RBrace));
+            p.bump();
+
+            m.complete(p, SyntaxKind::ParenExpr)
+        }
+        _ => return, // we’ll handle errors later.
+    };
 
     loop {
         let op = match p.peek() {
@@ -87,9 +95,9 @@ fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) {
        // Eat the operator’s token.
         p.bump();
 
-        p.start_node_at(checkpoint, SyntaxKind::BinExpression);
+        let m = lhs.precede(p);
         expr_binding_power(p, right_binding_power);
-        p.finish_node();
+        lhs = m.complete(p, SyntaxKind::BinExpression);
     }
 }
 
@@ -110,7 +118,8 @@ fn parse_number() {
     check("123",             
     expect![[r#"
     Root@0..3
-      Number@0..3 "123""#
+      Literal@0..3
+        Number@0..3 "123""#
       ]],
             );
 }
@@ -120,8 +129,9 @@ fn parse_variable_ref() {
     check(
         "counter",
         expect![[r#"
-Root@0..7
-  Identifier@0..7 "counter""#]],
+        Root@0..7
+          VariableRef@0..7
+            Identifier@0..7 "counter""#]],
     );
 }
 
@@ -132,9 +142,11 @@ fn parse_simple_binary_expression() {
         expect![[r#"
 Root@0..3
   BinExpression@0..3
-    Number@0..1 "1"
+    Literal@0..1
+      Number@0..1 "1"
     Plus@1..2 "+"
-    Number@2..3 "2""#]],
+    Literal@2..3
+      Number@2..3 "2""#]],
     );
 }
 
@@ -143,17 +155,21 @@ fn parse_left_associative_binary_expression() {
     check(
         "1+2+3+4",
         expect![[r#"
-Root@0..7
-  BinExpression@0..7
-    BinExpression@0..5
-      BinExpression@0..3
-        Number@0..1 "1"
-        Plus@1..2 "+"
-        Number@2..3 "2"
-      Plus@3..4 "+"
-      Number@4..5 "3"
-    Plus@5..6 "+"
-    Number@6..7 "4""#]],
+        Root@0..7
+          BinExpression@0..7
+            BinExpression@0..5
+              BinExpression@0..3
+                Literal@0..1
+                  Number@0..1 "1"
+                Plus@1..2 "+"
+                Literal@2..3
+                  Number@2..3 "2"
+              Plus@3..4 "+"
+              Literal@4..5
+                Number@4..5 "3"
+            Plus@5..6 "+"
+            Literal@6..7
+              Number@6..7 "4""#]],
     );
 }
 
@@ -165,14 +181,18 @@ fn parse_binary_expression_with_mixed_binding_power() {
 Root@0..7
   BinExpression@0..7
     BinExpression@0..5
-      Number@0..1 "1"
+      Literal@0..1
+        Number@0..1 "1"
       Plus@1..2 "+"
       BinExpression@2..5
-        Number@2..3 "2"
+        Literal@2..3
+          Number@2..3 "2"
         Star@3..4 "*"
-        Number@4..5 "3"
+        Literal@4..5
+          Number@4..5 "3"
     Minus@5..6 "-"
-    Number@6..7 "4""#]],
+    Literal@6..7
+      Number@6..7 "4""#]],
     );
 }
 
@@ -182,7 +202,8 @@ fn parse_negation() {
     Root@0..3
       PrefixExpression@0..3
         Minus@0..1 "-"
-        Number@1..3 "10""#]]);
+        Literal@1..3
+          Number@1..3 "10""#]]);
 }
 
 #[test]
@@ -194,9 +215,11 @@ Root@0..6
   BinExpression@0..6
     PrefixExpression@0..3
       Minus@0..1 "-"
-      Number@1..3 "20"
+      Literal@1..3
+        Number@1..3 "20"
     Plus@3..4 "+"
-    Number@4..6 "20""#]],
+    Literal@4..6
+      Number@4..6 "20""#]],
     );
 }
 
@@ -205,20 +228,27 @@ fn parse_nested_parentheses() {
     check(
         "((((((10))))))",
         expect![[r#"
-Root@0..14
-  LBrace@0..1 "("
-  LBrace@1..2 "("
-  LBrace@2..3 "("
-  LBrace@3..4 "("
-  LBrace@4..5 "("
-  LBrace@5..6 "("
-  Number@6..8 "10"
-  RBrace@8..9 ")"
-  RBrace@9..10 ")"
-  RBrace@10..11 ")"
-  RBrace@11..12 ")"
-  RBrace@12..13 ")"
-  RBrace@13..14 ")""#]],
+        Root@0..14
+          ParenExpr@0..14
+            LBrace@0..1 "("
+            ParenExpr@1..13
+              LBrace@1..2 "("
+              ParenExpr@2..12
+                LBrace@2..3 "("
+                ParenExpr@3..11
+                  LBrace@3..4 "("
+                  ParenExpr@4..10
+                    LBrace@4..5 "("
+                    ParenExpr@5..9
+                      LBrace@5..6 "("
+                      Literal@6..8
+                        Number@6..8 "10"
+                      RBrace@8..9 ")"
+                    RBrace@9..10 ")"
+                  RBrace@10..11 ")"
+                RBrace@11..12 ")"
+              RBrace@12..13 ")"
+            RBrace@13..14 ")""#]],
     );
 }
 
@@ -229,14 +259,18 @@ fn parentheses_affect_precedence() {
         expect![[r#"
 Root@0..7
   BinExpression@0..7
-    Number@0..1 "5"
+    Literal@0..1
+      Number@0..1 "5"
     Star@1..2 "*"
-    LBrace@2..3 "("
-    BinExpression@3..6
-      Number@3..4 "2"
-      Plus@4..5 "+"
-      Number@5..6 "1"
-    RBrace@6..7 ")""#]],
+    ParenExpr@2..7
+      LBrace@2..3 "("
+      BinExpression@3..6
+        Literal@3..4
+          Number@3..4 "2"
+        Plus@4..5 "+"
+        Literal@5..6
+          Number@5..6 "1"
+      RBrace@6..7 ")""#]],
     );
 }
 
@@ -247,7 +281,8 @@ fn parse_number_preceded_by_whitespace() {
         expect![[r#"
 Root@0..7
   Whitespace@0..3 "   "
-  Number@3..7 "9876""#]],
+  Literal@3..7
+    Number@3..7 "9876""#]],
     );
 }
 
@@ -257,8 +292,9 @@ fn parse_number_followed_by_whitespace() {
         "999   ",
         expect![[r#"
 Root@0..6
-  Number@0..3 "999"
-  Whitespace@3..6 "   ""#]],
+  Literal@0..6
+    Number@0..3 "999"
+    Whitespace@3..6 "   ""#]],
     );
 }
 
@@ -267,10 +303,11 @@ fn parse_number_surrounded_by_whitespace() {
     check(
         " 123     ",
         expect![[r#"
-Root@0..9
-  Whitespace@0..1 " "
-  Number@1..4 "123"
-  Whitespace@4..9 "     ""#]],
+        Root@0..9
+          Whitespace@0..1 " "
+          Literal@1..9
+            Number@1..4 "123"
+            Whitespace@4..9 "     ""#]],
     );
 }
 
@@ -282,16 +319,19 @@ fn parse_binary_expression_with_whitespace() {
 Root@0..12
   Whitespace@0..1 " "
   BinExpression@1..12
-    Number@1..2 "1"
-    Whitespace@2..3 " "
+    Literal@1..3
+      Number@1..2 "1"
+      Whitespace@2..3 " "
     Plus@3..4 "+"
     Whitespace@4..7 "   "
     BinExpression@7..12
-      Number@7..8 "2"
+      Literal@7..8
+        Number@7..8 "2"
       Star@8..9 "*"
       Whitespace@9..10 " "
-      Number@10..11 "3"
-      Whitespace@11..12 " ""#]],
+      Literal@10..12
+        Number@10..11 "3"
+        Whitespace@11..12 " ""#]],
     );
 }
 }

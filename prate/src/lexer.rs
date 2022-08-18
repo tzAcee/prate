@@ -3,7 +3,8 @@ use num_derive::{FromPrimitive, ToPrimitive};
 
 #[derive(Debug, Copy, Clone, PartialEq, Logos, FromPrimitive, ToPrimitive, Hash, Ord, PartialOrd, Eq)]
 pub(crate) enum SyntaxKind {
-    #[regex(" +")]
+    #[regex("\r+")]
+    #[regex("[ \n]+")]
     Whitespace,
 
     #[regex("callable")]
@@ -51,14 +52,30 @@ pub(crate) enum SyntaxKind {
     #[token("[")]
     LSquareBrace,
 
+    #[token("/*", |lex| {
+        let len = lex.remainder().find("*/")?;
+        lex.bump(len + 2); // include len of `*/`
+    
+        Some(())
+    })]
+    #[regex("//.*")]
+    Comment,
+
     #[error]
     Undefined,
 
     Root,
-
     BinExpression,
+    Literal,
+    ParenExpr,
+    PrefixExpression,
+    VariableRef,
+}
 
-    PrefixExpression
+impl SyntaxKind {
+    pub(crate) fn is_trivia(self) -> bool {
+        matches!(self, Self::Whitespace | Self::Comment)
+    }
 }
 
 impl From<SyntaxKind> for rowan::SyntaxKind {
@@ -194,5 +211,28 @@ mod tests {
     #[test]
     fn lex_single_char_identifier() {
         check_lex("x", SyntaxKind::Identifier);
+    }
+
+    #[test]
+    fn lex_comment_one_line() {
+        check_lex("// foo", SyntaxKind::Comment);
+    }
+
+    
+    #[test]
+    fn lex_comment_multi_line() {
+        check_lex(r"/* abc
+        long cmd 
+        */", SyntaxKind::Comment);
+    }
+
+    #[test]
+    fn lex_spaces_and_newlines() {
+        check_lex("  \n ", SyntaxKind::Whitespace);
+    }
+
+    #[test]
+    fn lex_comment_multi_line1() {
+        check_lex("/*1*/", SyntaxKind::Comment);
     }
 }
