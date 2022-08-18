@@ -52,25 +52,6 @@ impl<'l, 'input> Parser<'l, 'input> {
         self.events
     }
 
-    fn start_node(&mut self, kind: SyntaxKind) {
-        self.events.push(Event::StartNode {
-            kind,
-            forward_parent: None,
-        });
-    }
-
-    fn start_node_at(&mut self, checkpoint: usize, kind:SyntaxKind) {
-        self.events.push(Event::StartNodeAt { kind, checkpoint });
-    }
-
-    fn finish_node(&mut self) {
-        self.events.push(Event::FinishNode);
-    }
-
-    fn checkpoint(&self) -> usize {
-        self.events.len()
-    }
-
     fn peek(&mut self) -> Option<SyntaxKind> {
         self.source.peek_kind()
     }
@@ -82,6 +63,10 @@ impl<'l, 'input> Parser<'l, 'input> {
             kind: *kind,
             text: (*text).into(),
         });
+    }
+
+    fn at(&mut self, kind: SyntaxKind) -> bool {
+        self.peek() == Some(kind)
     }
 }
 
