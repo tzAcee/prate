@@ -1,22 +1,22 @@
 use std::mem;
 
 use super::event::Event;
-use crate::lexer::{SyntaxKind, Lexeme};
+use crate::lexer::{SyntaxKind, Token};
 use crate::syntax::PrateLng;
 use rowan::{GreenNode, GreenNodeBuilder, Language};
 
-pub(super) struct Sink<'l, 'input> {
+pub(super) struct Sink<'t, 'input> {
     builder: GreenNodeBuilder<'static>,
-    lexemes: &'l [Lexeme<'input>],
+    tokens: &'t [Token<'input>],
     cursor: usize,
     events: Vec<Event>,
 }
 
-impl<'l, 'input> Sink<'l, 'input> {
-    pub(super) fn new(lexemes: &'l [Lexeme<'input>], events: Vec<Event>) -> Self {
+impl<'t, 'input> Sink<'t, 'input> {
+    pub(super) fn new(tokens: &'t [Token<'input>], events: Vec<Event>) -> Self {
         Self {
             builder: GreenNodeBuilder::new(),
-            lexemes,
+            tokens,
             cursor: 0,
             events,
         }
@@ -68,14 +68,13 @@ impl<'l, 'input> Sink<'l, 'input> {
         self.builder.finish()
     }
 
-
     fn eat_trivia(&mut self) {
-        while let Some(lexeme) = self.lexemes.get(self.cursor) {
-            if !lexeme.kind.is_trivia() {
+        while let Some(token) = self.tokens.get(self.cursor) {
+            if !token.kind.is_trivia() {
                 break;
             }
 
-            self.token(lexeme.kind, &lexeme.text.into());
+            self.token(token.kind, &token.text.into());
         }
     }
 

@@ -1,38 +1,38 @@
 mod event;
 mod expr;
+mod marker;
 mod sink;
 mod source;
-mod marker;
 
-use crate::lexer::{Lexeme, Lexer, SyntaxKind};
+use crate::lexer::{Lexer, SyntaxKind, Token};
 use crate::syntax::SyntaxNode;
 use event::Event;
 use expr::expr;
+use marker::Marker;
 use rowan::GreenNode;
 use sink::Sink;
 use source::Source;
-use marker::Marker;
 
 pub fn parse(input: &str) -> Parse {
-    let lexemes: Vec<_> = Lexer::new(input).collect();
-    let parser = Parser::new(&lexemes);
+    let tokens: Vec<_> = Lexer::new(input).collect();
+    let parser = Parser::new(&tokens);
     let events = parser.parse();
-    let sink = Sink::new(&lexemes, events);
+    let sink = Sink::new(&tokens, events);
 
     Parse {
         green_node: sink.finish(),
     }
 }
 
-struct Parser<'l, 'input> {
-    source: Source<'l, 'input>,
+struct Parser<'t, 'input> {
+    source: Source<'t, 'input>,
     events: Vec<Event>,
 }
 
-impl<'l, 'input> Parser<'l, 'input> {
-    fn new(lexemes: &'l [Lexeme<'input>]) -> Self {
+impl<'t, 'input> Parser<'t, 'input> {
+    fn new(tokens: &'t [Token<'input>]) -> Self {
         Self {
-            source: Source::new(lexemes),
+            source: Source::new(tokens),
             events: Vec::new(),
         }
     }
@@ -57,7 +57,7 @@ impl<'l, 'input> Parser<'l, 'input> {
     }
 
     fn bump(&mut self) {
-        let Lexeme { kind, text } = self.source.next_lexeme().unwrap();
+        let Token { kind, text } = self.source.next_token().unwrap();
 
         self.events.push(Event::AddToken {
             kind: *kind,
@@ -79,7 +79,7 @@ impl Parse {
         let syntax_node = SyntaxNode::new_root(self.green_node.clone());
         let formatted = format!("{:#?}", syntax_node);
 
-        formatted[0..formatted.len()-1].to_string()
+        formatted[0..formatted.len() - 1].to_string()
     }
 }
 

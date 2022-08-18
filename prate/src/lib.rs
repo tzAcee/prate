@@ -7,6 +7,6 @@ mod syntax;
 mod tests {
     #[test]
     fn is_ok() {
-        assert_eq!(2+2, 4);
+        assert_eq!(2 + 2, 4);
     }
 }

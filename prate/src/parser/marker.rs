@@ -1,7 +1,7 @@
 use super::event::Event;
 use super::Parser;
-use drop_bomb::DropBomb;
 use crate::lexer::SyntaxKind;
+use drop_bomb::DropBomb;
 
 pub(super) struct Marker {
     pos: usize,
@@ -10,10 +10,10 @@ pub(super) struct Marker {
 
 impl Marker {
     pub(super) fn new(pos: usize) -> Self {
-        Self { 
+        Self {
             pos,
-            bomb: DropBomb::new("Markers need to be completed"), }
-        
+            bomb: DropBomb::new("Markers need to be completed"),
+        }
     }
 
     pub(super) fn complete(mut self, p: &mut Parser, kind: SyntaxKind) -> CompletedMarker {

@@ -1,7 +1,9 @@
 use logos::Logos;
 use num_derive::{FromPrimitive, ToPrimitive};
 
-#[derive(Debug, Copy, Clone, PartialEq, Logos, FromPrimitive, ToPrimitive, Hash, Ord, PartialOrd, Eq)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, Logos, FromPrimitive, ToPrimitive, Hash, Ord, PartialOrd, Eq,
+)]
 pub(crate) enum SyntaxKind {
     #[regex("\r+")]
     #[regex("[ \n]+")]
@@ -88,7 +90,7 @@ pub(crate) struct Lexer<'a> {
     inner: logos::Lexer<'a, SyntaxKind>,
 }
 
-impl <'a> Lexer<'a> {
+impl<'a> Lexer<'a> {
     pub(crate) fn new(input: &'a str) -> Self {
         Self {
             inner: SyntaxKind::lexer(input),
@@ -97,7 +99,7 @@ impl <'a> Lexer<'a> {
 }
 
 impl<'a> Iterator for Lexer<'a> {
-    type Item = Lexeme<'a>;
+    type Item = Token<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let kind = self.inner.next()?;
@@ -108,7 +110,7 @@ impl<'a> Iterator for Lexer<'a> {
 }
 
 #[derive(Debug, PartialEq)]
-pub(crate) struct Lexeme<'a> {
+pub(crate) struct Token<'a> {
     pub(crate) kind: SyntaxKind,
     pub(crate) text: &'a str,
 }
@@ -120,7 +122,7 @@ mod tests {
 
     fn check_lex(input: &str, kind: SyntaxKind) {
         let mut lexer = Lexer::new(input);
-        assert_eq!(lexer.next(), Some(Lexeme { kind, text: input }));
+        assert_eq!(lexer.next(), Some(Token { kind, text: input }));
     }
 
     #[test]
@@ -218,12 +220,14 @@ mod tests {
         check_lex("// foo", SyntaxKind::Comment);
     }
 
-    
     #[test]
     fn lex_comment_multi_line() {
-        check_lex(r"/* abc
+        check_lex(
+            r"/* abc
         long cmd 
-        */", SyntaxKind::Comment);
+        */",
+            SyntaxKind::Comment,
+        );
     }
 
     #[test]
