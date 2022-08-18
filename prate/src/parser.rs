@@ -1,64 +1,75 @@
-use crate::lexer::{Lexer, SyntaxKind};
-use crate::syntax::{PrateLng, SyntaxNode};
-use logos::Logos;
-use rowan::{GreenNode, GreenNodeBuilder, Language};
-use std::iter::Peekable;
+mod event;
+mod expr;
+mod sink;
+mod source;
 
-pub struct Parser<'a> {
-    lexer: Peekable<Lexer<'a>>,
-    builder: GreenNodeBuilder<'static>,
+use crate::lexer::{Lexeme, Lexer, SyntaxKind};
+use crate::syntax::SyntaxNode;
+use event::Event;
+use expr::expr;
+use rowan::GreenNode;
+use sink::Sink;
+use source::Source;
+
+pub fn parse(input: &str) -> Parse {
+    let lexemes: Vec<_> = Lexer::new(input).collect();
+    let parser = Parser::new(&lexemes);
+    let events = parser.parse();
+    let sink = Sink::new(&lexemes, events);
+
+    Parse {
+        green_node: sink.finish(),
+    }
 }
 
-impl<'a> Parser<'a> {
-    pub fn new(input: &'a str) -> Self {
+struct Parser<'l, 'input> {
+    source: Source<'l, 'input>,
+    events: Vec<Event>,
+}
+
+impl<'l, 'input> Parser<'l, 'input> {
+    fn new(lexemes: &'l [Lexeme<'input>]) -> Self {
         Self {
-            lexer: Lexer::new(input).peekable(),
-            builder: GreenNodeBuilder::new(),
+            source: Source::new(lexemes),
+            events: Vec::new(),
         }
     }
 
-    pub fn parse(mut self) -> Parse{
+    fn parse(mut self) -> Vec<Event> {
         self.start_node(SyntaxKind::Root);
-
-        match self.peek() {
-            Some(T) => {
-                match T {
-                    _ => {
-                        self.bump();
-                    }
-                }
-
-            }
-            None => {
-                todo!();
-            }
-            _ => {
-                todo!();
-            }
-        }
-        
+        expr(&mut self);
         self.finish_node();
 
-        Parse { green_node: self.builder.finish() }
+        self.events
     }
 
     fn start_node(&mut self, kind: SyntaxKind) {
-        self.builder.start_node(PrateLng::kind_to_raw(kind));
+        self.events.push(Event::StartNode { kind });
+    }
+
+    fn start_node_at(&mut self, checkpoint: usize, kind:SyntaxKind) {
+        self.events.push(Event::StartNodeAt { kind, checkpoint });
     }
 
     fn finish_node(&mut self) {
-        self.builder.finish_node();
+        self.events.push(Event::FinishNode);
+    }
+
+    fn checkpoint(&self) -> usize {
+        self.events.len()
     }
 
     fn peek(&mut self) -> Option<SyntaxKind> {
-        self.lexer.peek().map(|(kind, _)| *kind)
+        self.source.peek_kind()
     }
 
     fn bump(&mut self) {
-        let (kind, text) = self.lexer.next().unwrap();
+        let Lexeme { kind, text } = self.source.next_lexeme().unwrap();
 
-        self.builder
-            .token(PrateLng::kind_to_raw(kind), text.into());
+        self.events.push(Event::AddToken {
+            kind: *kind,
+            text: (*text).into(),
+        });
     }
 }
 
@@ -81,34 +92,23 @@ mod tests {
     use super::*;
     use expect_test::{expect, Expect};
 
-    fn check(input: &str, expected_tree: Expect) {
-        let parse = Parser::new(input).parse();
+    pub fn check(input: &str, expected_tree: Expect) {
+        let parse = parse(input);
         expected_tree.assert_eq(&parse.debug_tree());
     }
 
-    #[ignore]
     #[test]
     fn parse_nothing() {
         check("", expect![[r#"Root@0..0"#]]);
     }
 
     #[test]
-    fn parse_number() {
-        check("123",             
-        expect![[r#"
-        Root@0..3
-          Number@0..3 "123""#
-          ]],
-                );
-    }
-
-    #[test]
-    fn parse_binding_usage() {
+    fn parse_whitespace() {
         check(
-            "counter",
+            "   ",
             expect![[r#"
-Root@0..7
-  Identifier@0..7 "counter""#]],
+Root@0..3
+  Whitespace@0..3 "   ""#]],
         );
     }
 }
