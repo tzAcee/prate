@@ -52,6 +52,12 @@ pub enum TokenKind {
     #[token("[")]
     LSquareBrace,
 
+    #[token(";")]
+    Semicolon,
+
+    #[token(r#"""#)]
+    Quotation,
+
     #[token("/*", |lex| {
         let len = lex.remainder().find("*/")?;
         lex.bump(len + 2); // include len of `*/`
@@ -90,6 +96,8 @@ impl fmt::Display for TokenKind {
             TokenKind::RCurlyBrace => "‘}’",
             TokenKind::RSquareBrace => "‘]’",
             TokenKind::LSquareBrace => "‘[’",
+            TokenKind::Semicolon => "‘[’",
+            TokenKind::Quotation => r#"‘"’"#,
             TokenKind::Comment => "comment",
             TokenKind::Undefined => "an undefined token"
         })

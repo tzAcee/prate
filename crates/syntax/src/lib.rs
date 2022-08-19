@@ -1,4 +1,4 @@
-use lexer::TokenKind;
+use lexer::{TokenKind};
 use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::{FromPrimitive, ToPrimitive};
 
@@ -20,6 +20,8 @@ pub enum SyntaxKind {
     RCurlyBrace,
     LSquareBrace,
     RSquareBrace,
+    Semicolon,
+    Quotation,
     Comment,
     Undefined,
     Root,
@@ -29,6 +31,7 @@ pub enum SyntaxKind {
     PrefixExpression,
     VariableRef,
     VariableDef,
+    String,
 }
 
 impl From<TokenKind> for SyntaxKind {
@@ -46,6 +49,8 @@ impl From<TokenKind> for SyntaxKind {
             TokenKind::Equals => Self::Equals,
             TokenKind::LBrace => Self::LBrace,
             TokenKind::RBrace => Self::RBrace,
+            TokenKind::Quotation => Self::Quotation,
+            TokenKind::Semicolon => Self::Semicolon,
             TokenKind::LCurlyBrace => Self::LCurlyBrace,
             TokenKind::RCurlyBrace => Self::RCurlyBrace,
             TokenKind::LSquareBrace => Self::LSquareBrace,

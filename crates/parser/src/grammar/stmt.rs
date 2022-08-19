@@ -66,7 +66,7 @@ Root@0..17
     Whitespace@15..16 " "
     VariableRef@16..17
       Identifier@16..17 "a"
-error at 8..11: expected number, identifier, ‘-’ or ‘(’, but found def"#]],
+error at 8..11: expected number, identifier, ‘-’, ‘(’ or ‘"’, but found def"#]],
         );
     }
 
@@ -102,6 +102,45 @@ Root@0..4
     VariableRef@1..4
       Identifier@1..4 "foo"
 error at 1..4: expected ‘+’, ‘-’, ‘*’, ‘/’ or ‘)’"#]],
+        );
+    }
+
+    #[test]
+    fn parse_string_define() {
+        check(
+            r#"def stringliteral = "teststring""#,
+            expect![[r#"
+            Root@0..32
+              VariableDef@0..32
+                Define@0..3 "def"
+                Whitespace@3..4 " "
+                Identifier@4..17 "stringliteral"
+                Whitespace@17..18 " "
+                Equals@18..19 "="
+                Whitespace@19..20 " "
+                String@20..32
+                  Quotation@20..21 "\""
+                  Identifier@21..31 "teststring"
+                  Quotation@31..32 "\"""#]],
+        );
+    }
+    #[test]
+    fn parse_string_define_with_missing_quote() {
+        check(
+            r#"def stringliteral = "abc"#,
+            expect![[r#"
+            Root@0..24
+              VariableDef@0..24
+                Define@0..3 "def"
+                Whitespace@3..4 " "
+                Identifier@4..17 "stringliteral"
+                Whitespace@17..18 " "
+                Equals@18..19 "="
+                Whitespace@19..20 " "
+                String@20..24
+                  Quotation@20..21 "\""
+                  Identifier@21..24 "abc"
+            error at 21..24: expected ‘"’"#]],
         );
     }
 }

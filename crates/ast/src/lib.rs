@@ -39,6 +39,7 @@ impl VariableDef {
 pub enum Expr {
     BinaryExpr(BinaryExpr),
     Literal(Literal),
+    StringLiteral(StringLiteral),
     ParenExpr(ParenExpr),
     UnaryExpr(UnaryExpr),
     VariableRef(VariableRef),
@@ -49,6 +50,7 @@ impl Expr {
         let result = match node.kind() {
             SyntaxKind::InfixExpression => Self::BinaryExpr(BinaryExpr(node)),
             SyntaxKind::Literal => Self::Literal(Literal(node)),
+            SyntaxKind::String => Self::StringLiteral(StringLiteral(node)),
             SyntaxKind::ParenExpression => Self::ParenExpr(ParenExpr(node)),
             SyntaxKind::PrefixExpression => Self::UnaryExpr(UnaryExpr(node)),
             SyntaxKind::VariableRef => Self::VariableRef(VariableRef(node)),
@@ -114,6 +116,35 @@ impl Literal {
 
     pub fn parse(&self) -> Option<u64> {
         self.0.first_token().unwrap().text().parse().ok()
+    }
+}
+
+#[derive(Debug)]
+pub struct StringLiteral(SyntaxNode);
+impl StringLiteral {
+    pub fn cast(node: SyntaxNode) -> Option<Self> {
+        if node.kind() == SyntaxKind::String {
+            Some(Self(node))
+        } else {
+            None
+        }
+    }
+
+    pub fn parse(&self) -> Option<String> {
+        let token_text = self.0
+        .children_with_tokens()
+        .filter_map(SyntaxElement::into_token)
+        .find(|token| token.kind() == SyntaxKind::Identifier);
+
+        match token_text {
+            Some(content) => {
+                return Some(content.text().to_string())
+            }
+            None => {
+                return None;
+            }
+        }
+
     }
 }
 

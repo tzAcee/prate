@@ -25,6 +25,7 @@ impl Database {
             match ast {
                 ast::Expr::BinaryExpr(ast) => self.lower_binary(ast),
                 ast::Expr::Literal(ast) => Expr::Literal { n: ast.parse() },
+                ast::Expr::StringLiteral(ast) => Expr::StringLiteral {n: ast.parse()},
                 ast::Expr::ParenExpr(ast) => self.lower_expr(ast.expr()),
                 ast::Expr::UnaryExpr(ast) => self.lower_unary(ast),
                 ast::Expr::VariableRef(ast) => Expr::VariableRef { var: ast.name() },
@@ -166,6 +167,11 @@ mod tests {
     #[test]
     fn lower_literal() {
         check_expr("999", Expr::Literal { n: Some(999) }, Database::default());
+    }
+
+    #[test]
+    fn lower_string_literal() {
+        check_expr(r#""asd999""#, Expr::StringLiteral { n: Some(String::from("asd999")) }, Database::default());
     }
 
     #[test]

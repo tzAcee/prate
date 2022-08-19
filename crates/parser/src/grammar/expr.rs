@@ -77,6 +77,8 @@ fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
         prefix_expr(p)
     } else if p.at(TokenKind::LBrace) {
         paren_expr(p)
+    } else if p.at(TokenKind::Quotation) {
+      string_expr(p)
     } else {
         p.error();
         return None;
@@ -99,6 +101,16 @@ fn variable_ref(p: &mut Parser) -> CompletedMarker {
     let m = p.start();
     p.bump();
     m.complete(p, SyntaxKind::VariableRef)
+}
+
+fn string_expr(p: &mut Parser) -> CompletedMarker {
+  assert!(p.at(TokenKind::Quotation));
+  let m = p.start();
+  p.bump();
+  p.expect(TokenKind::Identifier);
+  p.expect(TokenKind::Quotation);
+
+  m.complete(p, SyntaxKind::String)
 }
 
 fn prefix_expr(p: &mut Parser) -> CompletedMarker {
@@ -370,7 +382,7 @@ Root@0..3
       Literal@1..2
         Number@1..2 "1"
       Plus@2..3 "+"
-error at 2..3: expected number, identifier, ‘-’ or ‘(’
+error at 2..3: expected number, identifier, ‘-’, ‘(’ or ‘"’
 error at 2..3: expected ‘)’"#]],
         );
     }
