@@ -29,19 +29,23 @@ impl UnaryOp {
 }
 
 pub(super) fn expr(p: &mut Parser) -> Option<CompletedMarker> {
-  expr_binding_power(p, 0)
+    expr_binding_power(p, 0)
 }
 
 fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) -> Option<CompletedMarker> {
     let mut lhs = lhs(p)?;
 
     loop {
-        let op = match p.peek() {
-            Some(SyntaxKind::Plus) => BinaryOp::Add,
-            Some(SyntaxKind::Minus) => BinaryOp::Sub,
-            Some(SyntaxKind::Star) => BinaryOp::Mul,
-            Some(SyntaxKind::Slash) => BinaryOp::Div,
-            _ => return None, // we’ll handle errors later.
+        let op = if p.at(TokenKind::Plus) {
+            BinaryOp::Add
+        } else if p.at(TokenKind::Minus) {
+            BinaryOp::Sub
+        } else if p.at(TokenKind::Star) {
+            BinaryOp::Mul
+        } else if p.at(TokenKind::Slash) {
+            BinaryOp::Div
+        } else {
+            break;
         };
 
         let (left_binding_power, right_binding_power) = op.binding_power();
@@ -54,26 +58,35 @@ fn expr_binding_power(p: &mut Parser, minimum_binding_power: u8) -> Option<Compl
         p.bump();
 
         let m = lhs.precede(p);
-        expr_binding_power(p, right_binding_power);
+        let parsed_rhs = expr_binding_power(p, right_binding_power).is_some();
         lhs = m.complete(p, SyntaxKind::InfixExpression);
+
+        if !parsed_rhs {
+            break;
+        }
     }
     Some(lhs)
 }
 
 fn lhs(p: &mut Parser) -> Option<CompletedMarker> {
-    let cm = match p.peek() {
-        Some(SyntaxKind::Number) => literal(p),
-        Some(SyntaxKind::Identifier) => variable_ref(p),
-        Some(SyntaxKind::Minus) => prefix_expr(p),
-        Some(SyntaxKind::LBrace) => paren_expr(p),
-        _ => return None, // we’ll handle errors later.
+    let cm = if p.at(TokenKind::Number) {
+        literal(p)
+    } else if p.at(TokenKind::Identifier) {
+        variable_ref(p)
+    } else if p.at(TokenKind::Minus) {
+        prefix_expr(p)
+    } else if p.at(TokenKind::LBrace) {
+        paren_expr(p)
+    } else {
+        p.error();
+        return None;
     };
 
     Some(cm)
 }
 
 fn literal(p: &mut Parser) -> CompletedMarker {
-    assert!(p.at(SyntaxKind::Number));
+    assert!(p.at(TokenKind::Number));
 
     let m = p.start();
     p.bump();
@@ -81,7 +94,7 @@ fn literal(p: &mut Parser) -> CompletedMarker {
 }
 
 fn variable_ref(p: &mut Parser) -> CompletedMarker {
-    assert!(p.at(SyntaxKind::Identifier));
+    assert!(p.at(TokenKind::Identifier));
 
     let m = p.start();
     p.bump();
@@ -89,7 +102,7 @@ fn variable_ref(p: &mut Parser) -> CompletedMarker {
 }
 
 fn prefix_expr(p: &mut Parser) -> CompletedMarker {
-    assert!(p.at(SyntaxKind::Minus));
+    assert!(p.at(TokenKind::Minus));
 
     let m = p.start();
 
@@ -105,23 +118,20 @@ fn prefix_expr(p: &mut Parser) -> CompletedMarker {
 }
 
 fn paren_expr(p: &mut Parser) -> CompletedMarker {
-    assert!(p.at(SyntaxKind::LBrace));
+    assert!(p.at(TokenKind::LBrace));
 
     let m = p.start();
-
     p.bump();
     expr_binding_power(p, 0);
-
-    assert!(p.at(SyntaxKind::RBrace));
-    p.bump();
+    p.expect(TokenKind::RBrace);
 
     m.complete(p, SyntaxKind::ParenExpression)
 }
 ///////////////////////////////////
 #[cfg(test)]
 mod tests {
-  use crate::check;
-  use expect_test::expect;
+    use crate::check;
+    use expect_test::expect;
 
     #[test]
     fn parse_number() {
@@ -345,6 +355,23 @@ Root@0..12
       Literal@10..12
         Number@10..11 "3"
         Whitespace@11..12 " ""#]],
+        );
+    }
+
+    #[test]
+    fn do_not_parse_operator_if_gettting_rhs_failed() {
+        check(
+            "(1+",
+            expect![[r#"
+Root@0..3
+  ParenExpression@0..3
+    LBrace@0..1 "("
+    InfixExpression@1..3
+      Literal@1..2
+        Number@1..2 "1"
+      Plus@2..3 "+"
+error at 2..3: expected number, identifier, ‘-’ or ‘(’
+error at 2..3: expected ‘)’"#]],
         );
     }
 }

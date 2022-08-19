@@ -1,4 +1,5 @@
 use logos::Logos;
+use std::fmt;
 
 #[derive(Debug, Copy, Clone, PartialEq, Logos)]
 pub enum TokenKind {
@@ -64,15 +65,49 @@ pub enum TokenKind {
     Undefined,
 }
 
+impl TokenKind {
+    pub fn is_trivia(self) -> bool {
+        matches!(self, Self::Whitespace | Self::Comment)
+    }
+}
+
+impl fmt::Display for TokenKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            TokenKind::Whitespace => "whitespace",
+            TokenKind::Function => "callable",
+            TokenKind::Define => "def",
+            TokenKind::Identifier => "identifier",
+            TokenKind::Number => "number",
+            TokenKind::Plus => "‘+’",
+            TokenKind::Minus => "‘-’",
+            TokenKind::Star => "‘*’",
+            TokenKind::Slash => "‘/’",
+            TokenKind::Equals => "‘=’",
+            TokenKind::LBrace => "‘(’",
+            TokenKind::RBrace => "‘)’",
+            TokenKind::LCurlyBrace => "‘{’",
+            TokenKind::RCurlyBrace => "‘}’",
+            TokenKind::RSquareBrace => "‘]’",
+            TokenKind::LSquareBrace => "‘[’",
+            TokenKind::Comment => "comment",
+            TokenKind::Undefined => "an undefined token"
+        })
+    }
+}
+
 ///////////////////////////////////
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{Lexer, Token};
+    use crate::{Lexer};
 
     fn check_lex(input: &str, kind: TokenKind) {
         let mut lexer = Lexer::new(input);
-        assert_eq!(lexer.next(), Some(Token { kind, text: input }));
+
+        let token = lexer.next().unwrap();
+        assert_eq!(token.kind, kind);
+        assert_eq!(token.text, input);
     }
 
     #[test]

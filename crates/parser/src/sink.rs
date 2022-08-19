@@ -1,14 +1,17 @@
 use super::event::Event;
-use syntax::{SyntaxKind, PrateLng};
+use crate::parser::ParseError;
+use crate::Parse;
 use lexer::Token;
-use rowan::{GreenNode, GreenNodeBuilder, Language};
+use rowan::{GreenNodeBuilder, Language};
 use std::mem;
+use syntax::{PrateLng};
 
 pub(crate) struct Sink<'t, 'input> {
     builder: GreenNodeBuilder<'static>,
     tokens: &'t [Token<'input>],
     cursor: usize,
     events: Vec<Event>,
+    errors: Vec<ParseError>,
 }
 
 impl<'t, 'input> Sink<'t, 'input> {
@@ -18,10 +21,11 @@ impl<'t, 'input> Sink<'t, 'input> {
             tokens,
             cursor: 0,
             events,
+            errors: Vec::new(),
         }
     }
 
-    pub(crate) fn finish(mut self) -> GreenNode {
+    pub(crate) fn finish(mut self) -> Parse {
         for idx in 0..self.events.len() {
             match mem::replace(&mut self.events[idx], Event::Placeholder) {
                 Event::StartNode {
@@ -58,18 +62,22 @@ impl<'t, 'input> Sink<'t, 'input> {
                 }
                 Event::AddToken => self.token(),
                 Event::FinishNode => self.builder.finish_node(),
+                Event::Error(error) => self.errors.push(error),
                 Event::Placeholder => {}
             }
 
             self.eat_trivia();
         }
 
-        self.builder.finish()
+        Parse {
+            green_node: self.builder.finish(),
+            errors: self.errors,
+        }
     }
 
     fn eat_trivia(&mut self) {
         while let Some(token) = self.tokens.get(self.cursor) {
-            if !SyntaxKind::from(token.kind).is_trivia() {
+            if !token.kind.is_trivia() {
                 break;
             }
 
@@ -78,10 +86,10 @@ impl<'t, 'input> Sink<'t, 'input> {
     }
 
     fn token(&mut self) {
-        let Token { kind, text } = self.tokens[self.cursor];
+        let Token { kind, text, .. } = self.tokens[self.cursor];
 
         self.builder
-            .token(PrateLng::kind_to_raw(kind.into()), &text);
+            .token(PrateLng::kind_to_raw(kind.into()), text.into());
 
         self.cursor += 1;
     }

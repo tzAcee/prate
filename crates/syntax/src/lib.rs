@@ -28,12 +28,7 @@ pub enum SyntaxKind {
     ParenExpression,
     PrefixExpression,
     VariableRef,
-}
-
-impl SyntaxKind {
-    pub fn is_trivia(self) -> bool {
-        matches!(self, Self::Whitespace | Self::Comment)
-    }
+    VariableDef,
 }
 
 impl From<TokenKind> for SyntaxKind {

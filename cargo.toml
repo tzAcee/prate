@@ -4,5 +4,7 @@ members = [
     "crates/lexer",
     "crates/syntax",
     "crates/parser",
+    "crates/ast",
+    "crates/hir",
     "prate"
 ]
