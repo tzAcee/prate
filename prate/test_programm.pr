@@ -1,0 +1,3 @@
+def abc = 23;
+def next = "abc";
+def test = 12;
