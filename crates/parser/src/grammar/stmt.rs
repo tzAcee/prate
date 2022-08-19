@@ -18,6 +18,8 @@ fn variable_def(p: &mut Parser) -> CompletedMarker {
 
     expr::expr(p);
 
+    p.expect(TokenKind::Semicolon);
+
     return m.complete(p, SyntaxKind::VariableDef);
 }
 ///////////////////////////////////
@@ -40,9 +42,49 @@ Root@0..16
     Equals@8..9 "="
     Whitespace@9..10 " "
     VariableRef@10..16
-      Identifier@10..16 "abc123""#]],
+      Identifier@10..16 "abc123"
+error at 10..16: expected ‘+’, ‘-’, ‘*’, ‘/’ or ‘;’"#]],
         );
     }
+
+    #[test]
+    fn parse_variable_definition_with_number_no_semic() {
+        check(
+            "def foo = 123",
+            expect![[r#"
+Root@0..13
+  VariableDef@0..13
+    Define@0..3 "def"
+    Whitespace@3..4 " "
+    Identifier@4..7 "foo"
+    Whitespace@7..8 " "
+    Equals@8..9 "="
+    Whitespace@9..10 " "
+    Literal@10..13
+      Number@10..13 "123"
+error at 10..13: expected ‘+’, ‘-’, ‘*’, ‘/’ or ‘;’"#]],
+        );
+    }
+
+    #[test]
+    fn parse_variable_definition_with_number_with_semic() {
+        check(
+            "def foo = 123;",
+            expect![[r#"
+Root@0..14
+  VariableDef@0..14
+    Define@0..3 "def"
+    Whitespace@3..4 " "
+    Identifier@4..7 "foo"
+    Whitespace@7..8 " "
+    Equals@8..9 "="
+    Whitespace@9..10 " "
+    Literal@10..13
+      Number@10..13 "123"
+    Semicolon@13..14 ";""#]],
+        );
+    }
+
 
     #[test]
     fn recover_on_def_token() {
@@ -66,7 +108,9 @@ Root@0..17
     Whitespace@15..16 " "
     VariableRef@16..17
       Identifier@16..17 "a"
-error at 8..11: expected number, identifier, ‘-’, ‘(’ or ‘"’, but found def"#]],
+error at 8..11: expected number, identifier, ‘-’, ‘(’ or ‘"’, but found def
+error at 8..11: expected ‘;’, but found def
+error at 16..17: expected ‘+’, ‘-’, ‘*’, ‘/’ or ‘;’"#]],
         );
     }
 
@@ -75,19 +119,20 @@ error at 8..11: expected number, identifier, ‘-’, ‘(’ or ‘"’, but fo
         check(
             "def a = 1\na",
             expect![[r#"
-Root@0..11
-  VariableDef@0..10
-    Define@0..3 "def"
-    Whitespace@3..4 " "
-    Identifier@4..5 "a"
-    Whitespace@5..6 " "
-    Equals@6..7 "="
-    Whitespace@7..8 " "
-    Literal@8..10
-      Number@8..9 "1"
-      Whitespace@9..10 "\n"
-  VariableRef@10..11
-    Identifier@10..11 "a""#]],
+         Root@0..11
+           VariableDef@0..11
+             Define@0..3 "def"
+             Whitespace@3..4 " "
+             Identifier@4..5 "a"
+             Whitespace@5..6 " "
+             Equals@6..7 "="
+             Whitespace@7..8 " "
+             Literal@8..10
+               Number@8..9 "1"
+               Whitespace@9..10 "\n"
+             Undefined@10..11
+               Identifier@10..11 "a"
+         error at 10..11: expected ‘+’, ‘-’, ‘*’, ‘/’ or ‘;’, but found identifier"#]],
         );
     }
 
@@ -108,10 +153,10 @@ error at 1..4: expected ‘+’, ‘-’, ‘*’, ‘/’ or ‘)’"#]],
     #[test]
     fn parse_string_define() {
         check(
-            r#"def stringliteral = "teststring""#,
+            r#"def stringliteral = "teststring";"#,
             expect![[r#"
-            Root@0..32
-              VariableDef@0..32
+            Root@0..33
+              VariableDef@0..33
                 Define@0..3 "def"
                 Whitespace@3..4 " "
                 Identifier@4..17 "stringliteral"
@@ -121,7 +166,8 @@ error at 1..4: expected ‘+’, ‘-’, ‘*’, ‘/’ or ‘)’"#]],
                 String@20..32
                   Quotation@20..21 "\""
                   Identifier@21..31 "teststring"
-                  Quotation@31..32 "\"""#]],
+                  Quotation@31..32 "\""
+                Semicolon@32..33 ";""#]],
         );
     }
     #[test]
@@ -140,7 +186,8 @@ error at 1..4: expected ‘+’, ‘-’, ‘*’, ‘/’ or ‘)’"#]],
                 String@20..24
                   Quotation@20..21 "\""
                   Identifier@21..24 "abc"
-            error at 21..24: expected ‘"’"#]],
+            error at 21..24: expected ‘"’
+            error at 21..24: expected ‘+’, ‘-’, ‘*’, ‘/’ or ‘;’"#]],
         );
     }
 }

@@ -96,7 +96,7 @@ impl fmt::Display for TokenKind {
             TokenKind::RCurlyBrace => "‘}’",
             TokenKind::RSquareBrace => "‘]’",
             TokenKind::LSquareBrace => "‘[’",
-            TokenKind::Semicolon => "‘[’",
+            TokenKind::Semicolon => "‘;’",
             TokenKind::Quotation => r#"‘"’"#,
             TokenKind::Comment => "comment",
             TokenKind::Undefined => "an undefined token"
