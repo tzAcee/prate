@@ -2,7 +2,7 @@ use parser::parse;
 
 use std::io::{self, Write};
 
-fn main() -> io::Result<()> {
+fn request_input() -> io::Result<()>{
     let stdin = io::stdin();
     let mut stdout = io::stdout();
 
@@ -32,4 +32,7 @@ fn main() -> io::Result<()> {
 
         input.clear();
     }
+}
+fn main() -> io::Result<()>{
+    request_input()
 }
